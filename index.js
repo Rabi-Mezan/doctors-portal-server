@@ -6,6 +6,8 @@ const { json } = require('express');
 const { parse } = require('dotenv');
 require('dotenv').config();
 const { MongoClient } = require("mongodb");
+const ObjectId = require('mongodb').ObjectId;
+const stripe = require('stripe')(process.env.STRIPE_SECRET)
 
 
 app.use(cors())
@@ -78,6 +80,42 @@ async function run() {
             }
             res.json({ admin: isAdmin })
         })
+
+
+        app.get('/appointments/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await appointmentsCollection.findOne(query)
+            res.send(result)
+        })
+
+        //stripe payment api
+        app.post('/create-payment-intent', async (req, res) => {
+            const paymentInfo = req.body;
+            const amount = paymentInfo.price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                currency: 'usd',
+                amount: amount,
+                payment_method_types: ['card']
+            });
+            res.json({ clientSecret: paymentIntent.client_secret })
+        })
+
+        // payment update api
+        app.put('/appointments/:id', async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    payment: payment
+                }
+            }
+            const result = await appointmentsCollection.updateOne(filter, updateDoc)
+            res.send(result)
+
+        })
+
     }
     finally {
 
