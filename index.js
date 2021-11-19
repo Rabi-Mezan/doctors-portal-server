@@ -7,11 +7,13 @@ const { parse } = require('dotenv');
 require('dotenv').config();
 const { MongoClient } = require("mongodb");
 const ObjectId = require('mongodb').ObjectId;
+const fileupload = require('express-fileupload')
 const stripe = require('stripe')(process.env.STRIPE_SECRET)
 
 
 app.use(cors())
 app.use(express.json())
+app.use(fileupload())
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.krqaw.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 
@@ -24,6 +26,7 @@ async function run() {
         const database = client.db('doctors_portal')
         const appointmentsCollection = database.collection('appointments')
         const usersCollection = database.collection('users')
+        const doctorsCollection = database.collection('doctors')
 
         app.post('/appointments', async (req, res) => {
             const appointmentsInfo = req.body;
@@ -45,10 +48,35 @@ async function run() {
             res.send(result)
         })
 
+        // user api
         app.post('/users', async (req, res) => {
             const user = req.body
             const result = await usersCollection.insertOne(user)
             res.send(result)
+        })
+
+        // add doctors api
+        app.post('/doctors', async (req, res) => {
+            const name = req.body.name;
+            const email = req.body.email;
+            const picture = req.files.image;
+            const picData = picture.data;
+            const encodedPicture = picData.toString('base64');
+            const pictureBuffer = Buffer.from(encodedPicture, 'base64');
+            const doctor = {
+                name,
+                email,
+                image: pictureBuffer
+            }
+            const result = await doctorsCollection.insertOne(doctor)
+            res.send(result)
+
+        })
+
+        // get doctors api
+        app.get('/doctors', async (req, res) => {
+            const result = await doctorsCollection.find({}).toArray()
+            res.send(result);
         })
 
         app.put('/users', async (req, res) => {
